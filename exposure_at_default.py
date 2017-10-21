@@ -137,7 +137,7 @@ class ExposureAtDefault:
             addon -- type(float) The aggregate addon for the complete netting set
         
         """
-        floor = 0.05 
+        floor = 0.0
 
         market_values = self.netting_set['mtm_dirty'].values
         derivative_values = np.sum(market_values)
