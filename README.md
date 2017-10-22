@@ -34,7 +34,7 @@ print ExposureAtDefault(netting_set).calculate()
 
 # Testing 
 
-One test case has been provided using the sample IRS data found here: http://www.bis.org/publ/bcbs279.pdf.
+One test case has been provided using the sample IRS data found on page 22 here: http://www.bis.org/publ/bcbs279.pdf.
 
 To execute it, simply run python test.py
 
