@@ -20,6 +20,7 @@ class TestExposureAtDefault(unittest.TestCase):
         self.testMF()
         self.testMultiplier()
         self.testAddon()
+        self.testSupDelta()
 
     def testRC(self):
         expected_output = self.output['replacement_cost']
@@ -61,6 +62,16 @@ class TestExposureAtDefault(unittest.TestCase):
         func_output = np.round(self.instance.addon())
         numpy.testing.assert_array_almost_equal(func_output, expected_output)
 
+    def testSupDelta(self):
+        expected_output = self.output['sup_delta']
+        func_output = np.round(self.instance.supervisory_delta())
+        numpy.testing.assert_array_almost_equal(func_output, expected_output)
+
+    def testCalculate(self):
+        expected_output = self.output['EAD']
+        func_output = np.round(self.instance.calculate())
+        numpy.testing.assert_array_almost_equal(func_output, expected_output)
+
 input1 = pd.DataFrame({
 "id": ["swap_1", "swap_2"],
 "date": ["2009-01-17T00:00:00Z", "2015-01-17T00:00:00Z"],
@@ -84,7 +95,9 @@ output1 = {'replacement_cost': 10,
            'maturity': np.array([ 10., 4.]), 
            'maturity_factor': np.array([1., 1.]),
            'multiplier': 1, 
-           'addon': 296
+           'addon': 296,
+           'sup_delta': np.array([1, -1]),
+           'EAD': 429
            }
 
 known_values = [(input1, output1)]
@@ -94,4 +107,5 @@ def suite(known_values):
     suite.addTests(TestExposureAtDefault(x, y) for x, y in known_values)
     return suite
 
-unittest.TextTestRunner().run(suite(known_values))
+if __name__ == '__main__':
+    unittest.TextTestRunner().run(suite(known_values))

@@ -4,6 +4,8 @@ from utils import JsonProcess
 import pandas as pd 
 import numpy as np
 
+import test
+
 path = 'sample.json'
 data_processor = JsonProcess(path)
 

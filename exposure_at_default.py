@@ -20,7 +20,7 @@ class ExposureAtDefault:
         self.netting_set = netting_set
         # Add additional columns to our table of data which we need for the final calculation.
         self.netting_set['adjusted_notional'] = self.adjusted_notional()
-        self.netting_set['sup_delta'] = self.netting_set['receive_type'].apply(lambda x: self.supervisory_delta(x))
+        self.netting_set['sup_delta'] = self.supervisory_delta()
         self.netting_set['maturity'] = self.maturity()
         self.netting_set['mf'] = self.maturity_factor()
 
@@ -38,12 +38,12 @@ class ExposureAtDefault:
         return sup_duration.values
 
     def adjusted_notional(self):
-
+        """ Calculates the adjusted notional as defined by paragraph 157 of http://www.bis.org/publ/bcbs279.pdf """
         sup_duration = self.supervisory_duration()
         adj_notional = self.netting_set['notional_amount'] * sup_duration
         return adj_notional.values
 
-    def supervisory_delta(self, x):
+    def _sup_delta(self, x):
         """ 
         Calculates the supervisory delta adjustments as defined by paragraph 159 of http://www.bis.org/publ/bcbs279.pdf
             
@@ -58,6 +58,9 @@ class ExposureAtDefault:
         else:
             return np.nan
     
+    def supervisory_delta(self):
+        return self.netting_set['receive_type'].apply(lambda x: self._sup_delta(x)).values
+
     def start_end_dates(self):
         """ Calculates S and E as defined in paragraph 157 of http://www.bis.org/publ/bcbs279.pdf """
 
@@ -88,7 +91,7 @@ class ExposureAtDefault:
         return mf 
 
     def effective_notionals(self):
-        
+        """ Calculates the effective notional amounts as defined in paragraph 167 of http://www.bis.org/publ/bcbs279.pdf """
         time_buckets = np.array([0, 1, 5, np.inf]) # Defines three time buckets: [0 < 1], [1 < 5], [> 5]
 
         D = {} # Dict of dicts to hold the effective notionals for each maturity bucket per hedging set.
