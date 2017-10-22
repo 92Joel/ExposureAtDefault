@@ -32,6 +32,12 @@ netting_set = data_processor.to_df()
 
 print ExposureAtDefault(netting_set).calculate()
 
+# Testing 
+
+One test case has been provided using the sample IRS data found here: http://www.bis.org/publ/bcbs279.pdf.
+
+To execute it, simply run python test.py
+
 # Requirements
 
 * Python 2.7
