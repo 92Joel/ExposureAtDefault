@@ -21,14 +21,9 @@ class JsonProcess:
         file_path -- type(str) Must be a valid URL or system file path to a .JSON file 
 
         schema_path -- type(str) Must be a valid URL or system file path to a .JSON file containing a JSON schema
-                       default argument = 'default'
-
-                       if 'default' then the URL to the schema found in the github FIRE repo will be used.
+    
     """
-    def __init__(self, file_path, schema_path = 'default'):
-
-        if schema_path == 'default':
-            schema_path = 'https://raw.githubusercontent.com/SuadeLabs/fire/master/v1-dev/derivative.json'
+    def __init__(self, file_path, schema_path):
 
         if is_url(file_path):
             file_request = requests.get(schema_path)
