@@ -15,19 +15,14 @@ class ExposureAtDefault:
                        if 'default' then the URL to the schema found in the github FIRE repo will be used.
     """
 
-    def __init__(self, data_path, schema_path = 'default'):
+    def __init__(self, netting_set):
         
-        if schema_path == 'default':
-            schema_path = 'https://raw.githubusercontent.com/SuadeLabs/fire/master/v1-dev/derivative.json'
-
-        self.processor = utils.JsonProcess(data_path, schema_path)
-
-        # Throws an exception if JSON data fails to match the schema.
-        self.processor.validate() 
-
-        # Converts the JSON data file to a dataframe. 
-        # The resulting dataframe should be conceptually similar to that found on page 22 here: http://www.bis.org/publ/bcbs279.pdf 
-        self.netting_set = self.processor.to_df()
+        self.netting_set = netting_set
+        # Add additional columns to our table of data which we need for the final calculation.
+        self.netting_set['adjusted_notional'] = self.adjusted_notional()
+        self.netting_set['sup_delta'] = self.netting_set['receive_type'].apply(lambda x: self.supervisory_delta(x))
+        self.netting_set['maturity'] = self.maturity()
+        self.netting_set['mf'] = self.maturity_factor()
 
     def replacement_cost(self):
         """ Calculates the replacment cost of the netting set as defined by paragraph 136 of http://www.bis.org/publ/bcbs279.pdf """
@@ -40,12 +35,13 @@ class ExposureAtDefault:
         S, E = self.start_end_dates()
         sup_duration = (np.exp(-0.05 * S) - np.exp(-0.05 * E)) / 0.05
 
-        return sup_duration
+        return sup_duration.values
 
     def adjusted_notional(self):
 
         sup_duration = self.supervisory_duration()
-        return self.netting_set['notional_amount'] * sup_duration
+        adj_notional = self.netting_set['notional_amount'] * sup_duration
+        return adj_notional.values
 
     def supervisory_delta(self, x):
         """ 
@@ -82,23 +78,17 @@ class ExposureAtDefault:
         current = pd.to_datetime(self.netting_set['date'].values)
 
         maturity = (end - current).days / 365.25
-        return maturity
+        return maturity.values
 
     def maturity_factor(self):
         """ Calculates MF as defined in paragraph 164 of http://www.bis.org/publ/bcbs279.pdf """
-        maturity = self.maturity()
+
+        maturity = self.maturity() # Time to maturity
         mf = np.sqrt(map(lambda x: min(x, 1), maturity))
         return mf 
 
-    def calculate(self):
-        """ Calculates the Exposure at Default as defined in paragraph 128 of http://www.bis.org/publ/bcbs279.pdf"""
-
-        # Add additional columns to our table of data which we need for the final calculation.
-        self.netting_set['adjusted_notional'] = self.adjusted_notional()
-        self.netting_set['sup_delta'] = self.netting_set['receive_type'].apply(lambda x: self.supervisory_delta(x))
-        self.netting_set['maturity'] = self.maturity()
-        self.netting_set['mf'] = self.maturity_factor()
-
+    def effective_notionals(self):
+        
         time_buckets = np.array([0, 1, 5, np.inf]) # Defines three time buckets: [0 < 1], [1 < 5], [> 5]
 
         D = {} # Dict of dicts to hold the effective notionals for each maturity bucket per hedging set.
@@ -120,24 +110,13 @@ class ExposureAtDefault:
                     notional = pd.Series(0)
                 D[hedging_set_name][i] = notional.values
 
-        agg_addon = self.addon(D)
-        multiplier = self.multiplier(agg_addon)
-        rc = self.replacement_cost()
-        alpha = 1.4
-        exposure_at_default = alpha * (rc + multiplier * agg_addon)
+        return D
+    
+    def multiplier(self):
+        """ Calculates the multiplier as defined in paragraph 148 of http://www.bis.org/publ/bcbs279.pdf """
 
-        return exposure_at_default
-
-    def multiplier(self, addon):
-        """ 
-        Calculates the multiplier as defined in paragraph 148 of http://www.bis.org/publ/bcbs279.pdf
-        
-        Arguments: 
-        
-            addon -- type(float) The aggregate addon for the complete netting set
-        
-        """
         floor = 0.0
+        addon = self.addon()
 
         market_values = self.netting_set['mtm_dirty'].values
         derivative_values = np.sum(market_values)
@@ -150,21 +129,57 @@ class ExposureAtDefault:
         multiplier = min(1, multiplier)
         return multiplier
 
-    def addon(self, D):
-        """ 
-        Calculates the add on as defined by paragraphs 166-169 in http://www.bis.org/publ/bcbs279.pdf
+    def addon(self):
+        """ Calculates the add on as defined by paragraphs 166-169 in http://www.bis.org/publ/bcbs279.pdf """
         
-        Arguments:
-        
-            D -- type(dict) A dict of dicts holding the effective notional for each maturity bucket per hedging bucket  """
-        
+        D = self.effective_notionals()
+
         hedging_addons = {} # Dict to hold the addon per hedging set
         for hedging_set in D:
             notionals = D[hedging_set] # Get the notionals for the 3 maturity buckets in each hedging set
             value = np.sqrt((notionals[0] ** 2) + (notionals[1] ** 2) + (notionals[2] ** 2) + 1.4 * notionals[1] * notionals[2] + 0.6 * notionals[0] * notionals[2])
-            hedging_addons[hedging_set] = 0.05 * value
+            hedging_addons[hedging_set] = 0.005 * value
 
         addon = np.sum(hedging_addons.values())
-        return addon        
+        return addon   
 
-print ExposureAtDefault('sample.json').calculate()
+    def calculate(self):
+        """ Calculates the Exposure at Default as defined in paragraph 128 of http://www.bis.org/publ/bcbs279.pdf"""
+
+        agg_addon = self.addon()
+        multiplier = self.multiplier()
+        rc = self.replacement_cost()
+        alpha = 1.4
+        exposure_at_default = alpha * (rc + (multiplier * agg_addon))
+
+        return exposure_at_default     
+
+path = 'sample.json'
+data_processor = utils.JsonProcess(path)
+
+# Throws an exception if JSON data fails to match the schema.
+data_processor.validate() 
+
+# Converts the JSON data file to a dataframe. 
+# The resulting dataframe should be conceptually similar to that found on page 22 here: http://www.bis.org/publ/bcbs279.pdf 
+netting_set = data_processor.to_df()
+
+case1 = pd.DataFrame({
+"id": ["swap_1", "swap_2"],
+"date": ["2009-01-17T00:00:00Z", "2015-01-17T00:00:00Z"],
+"asset_class": ["ir", "ir"],
+"currency_code": ["USD", "USD"],
+"end_date": ["2019-01-17T00:00:00Z", "2019-01-17T00:00:00Z"],
+"mtm_dirty": [30, -20],
+"notional_amount": [10000, 10000],
+"payment_type": ["fixed", "floating"],
+"receive_type": ["floating", "fixed"],
+"start_date": ["2009-01-17T00:00:00Z", "2015-01-17T00:00:00Z"],
+"type": ["vanilla_swap", "vanilla_swap"],
+"trade_date": ["2009-01-10T00:00:00Z", "2015-01-10T00:00:00Z"],
+"value_date": ["2009-01-17T00:00:00Z", "2009-01-17T00:00:00Z"]
+})
+
+# print (ExposureAtDefault(case1).effective_notionals())
+
+# print {k:np.round(v) for k, v in ExposureAtDefault(case1).effective_notionals().items()}
