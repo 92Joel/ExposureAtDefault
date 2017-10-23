@@ -34,9 +34,17 @@ print ExposureAtDefault(netting_set).calculate()
 
 # Testing 
 
-One test case has been provided using the sample IRS data found on page 22 here: http://www.bis.org/publ/bcbs279.pdf.
+One test case for the calculation has been provided using the sample IRS data found on page 22 here: http://www.bis.org/publ/bcbs279.pdf.
 
-To execute it, simply run python test.py
+To test the JSON processing utitlity, multiple .JSON files have been created with minor modifications. The tests aim to check whether the program will correctly throw an error with incorrectly formatted data. 
+
+To execute them, run python -m Suade.Tests.* from the root directory.
+
+*: test_ead - Test just the Exposure at Default calculation class.
+
+test_json - Test just the Json Processing class.
+
+test_all - Test the above simultaneously.
 
 # Requirements
 
