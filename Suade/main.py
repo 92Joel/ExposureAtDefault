@@ -3,10 +3,16 @@ from utils import JsonProcess
 
 import pandas as pd 
 import numpy as np
+import os
 
-import test
+src_path = os.path.dirname(os.path.abspath(__file__)) # Absolute path of source file
 
-path = 'sample.json'
+if os.name == 'posix':
+    path = src_path + '/Sample_Data/sample.json' # Linux path
+
+if os.name == 'nt':
+    path = src_path + '\Sample_Data\sample.json' # Windows path
+
 data_processor = JsonProcess(path)
 
 # Throws an exception if JSON data fails to match the schema.

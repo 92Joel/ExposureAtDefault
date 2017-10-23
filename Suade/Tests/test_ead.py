@@ -1,10 +1,13 @@
-from exposure_at_default import ExposureAtDefault
+from ..exposure_at_default import ExposureAtDefault
 import pandas as pd 
 import numpy as np
 import numpy.testing
 import unittest
+import os
 
 class TestExposureAtDefault(unittest.TestCase):
+    """ Class to test the numerical calculations of each method used to calculate EAD are correct """
+
     def __init__(self, inp, out):
         super(TestExposureAtDefault, self).__init__() # Call the unittest.TestCase constructor
         self.input = inp
@@ -21,6 +24,7 @@ class TestExposureAtDefault(unittest.TestCase):
         self.testMultiplier()
         self.testAddon()
         self.testSupDelta()
+        self.testCalculate()
 
     def testRC(self):
         expected_output = self.output['replacement_cost']
@@ -72,6 +76,12 @@ class TestExposureAtDefault(unittest.TestCase):
         func_output = np.round(self.instance.calculate())
         numpy.testing.assert_array_almost_equal(func_output, expected_output)
 
+def suite(known_values):
+    suite = unittest.TestSuite()
+    suite.addTests(TestExposureAtDefault(x, y) for x, y in known_values)
+    return suite
+
+# Example calculations using the IRS data from page 22 of http://www.bis.org/publ/bcbs279.pdf
 input1 = pd.DataFrame({
 "id": ["swap_1", "swap_2"],
 "date": ["2009-01-17T00:00:00Z", "2015-01-17T00:00:00Z"],
@@ -102,10 +112,5 @@ output1 = {'replacement_cost': 10,
 
 known_values = [(input1, output1)]
 
-def suite(known_values):
-    suite = unittest.TestSuite()
-    suite.addTests(TestExposureAtDefault(x, y) for x, y in known_values)
-    return suite
-
-if __name__ == '__main__':
-    unittest.TextTestRunner().run(suite(known_values))
+# if __name__ == '__main__':
+unittest.TextTestRunner().run(suite(known_values))
